@@ -1,5 +1,8 @@
 name: OpenPanel Sync
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   workflow_dispatch:
   schedule:
@@ -35,15 +38,23 @@ jobs:
           RCLONE_CONFIG_CONTENT: ${{ secrets.RCLONE_CONFIG }}
         run: |
           mkdir -p ~/.config/rclone
-          cat > ~/.config/rclone/rclone.conf <<EOF
-          $RCLONE_CONFIG_CONTENT
-          EOF
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          config_dir = Path.home() / '.config' / 'rclone'
+          config_dir.mkdir(parents=True, exist_ok=True)
+          config_path = config_dir / 'rclone.conf'
+          config_path.write_text(os.environ['RCLONE_CONFIG_CONTENT'], encoding='utf-8')
+          print(f'Wrote rclone config to {config_path}')
+          PY
 
       - name: Verify rclone remote
         shell: bash
         env:
           RCLONE_CONFIG: ~/.config/rclone/rclone.conf
         run: |
+          rclone config file
           rclone listremotes
           rclone listremotes | grep -Fx 'gdrive:'
 
