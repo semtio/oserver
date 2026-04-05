@@ -62,7 +62,7 @@
 
 ## GitHub Actions
 
-- `RCLONE_CONF` — содержимое `rclone.conf`.
+- `RCLONE_CONFIG` — содержимое `rclone.conf`.
 - `RCLONE_SERVICE_ACCOUNT_JSON` — JSON service account, если используется для Google Drive.
 
 Workflow запускается каждый час, а прикладной интервал хранится в config. У GitHub Actions нет нативной поддержки динамического `schedule` из файла репозитория, поэтому cron в workflow задаётся отдельно от JSON-конфига.

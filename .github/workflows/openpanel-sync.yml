@@ -29,16 +29,27 @@ jobs:
       - name: Install rclone
         run: curl https://rclone.org/install.sh | sudo bash
 
-      - name: Configure rclone
+      - name: Setup rclone config
         shell: bash
+        env:
+          RCLONE_CONFIG_CONTENT: ${{ secrets.RCLONE_CONFIG }}
         run: |
           mkdir -p ~/.config/rclone
-          cat <<'EOF' > ~/.config/rclone/rclone.conf
-          ${{ secrets.RCLONE_CONF }}
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          $RCLONE_CONFIG_CONTENT
           EOF
+
+      - name: Verify rclone remote
+        shell: bash
+        env:
+          RCLONE_CONFIG: ~/.config/rclone/rclone.conf
+        run: |
+          rclone listremotes
+          rclone listremotes | grep -Fx 'gdrive:'
 
       - name: Run sync script
         env:
+          RCLONE_CONFIG: ~/.config/rclone/rclone.conf
           RCLONE_SERVICE_ACCOUNT_JSON: ${{ secrets.RCLONE_SERVICE_ACCOUNT_JSON }}
         run: python scripts/sync_openpanel.py --config config/openpanel.json
 
