@@ -283,6 +283,14 @@ def build_rclone_flags(config: AppConfig) -> list[str]:
     return flags
 
 
+def build_rclone_cmd(config: AppConfig, *args: str) -> list[str]:
+    command = ["rclone"]
+    if config.rclone_config_path:
+        command.extend(["--config", str(Path(config.rclone_config_path).expanduser())])
+    command.extend(args)
+    return command
+
+
 def run_command(
     command: list[str], env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess[str]:
@@ -296,9 +304,11 @@ def run_command(
     )
 
 
-def remote_file_exists(filename: str, rclone_target: str, env: dict[str, str]) -> bool:
+def remote_file_exists(
+    filename: str, rclone_target: str, config: AppConfig, env: dict[str, str]
+) -> bool:
     result = run_command(
-        ["rclone", "lsjson", rclone_target, "--files-only"],
+        build_rclone_cmd(config, "lsjson", rclone_target, "--files-only"),
         env=env,
     )
     files = parse_lsjson(result.stdout)
@@ -309,13 +319,13 @@ def rclone_copy(
     local_file: Path, rclone_target: str, config: AppConfig, env: dict[str, str]
 ) -> None:
     run_command(
-        [
-            "rclone",
+        build_rclone_cmd(
+            config,
             "copyto",
             *build_rclone_flags(config),
             str(local_file),
             f"{rclone_target.rstrip('/')}/{local_file.name}",
-        ],
+        ),
         env=env,
     )
     log(f"[INFO] Uploaded file to {rclone_target}")
@@ -340,9 +350,13 @@ def parse_lsjson(stdout: str) -> list[dict]:
 
 
 def cleanup_old_versions(
-    rclone_target: str, keep_count: int, file_pattern: str, env: dict[str, str]
+    rclone_target: str,
+    keep_count: int,
+    file_pattern: str,
+    config: AppConfig,
+    env: dict[str, str],
 ) -> None:
-    result = run_command(["rclone", "lsjson", rclone_target], env=env)
+    result = run_command(build_rclone_cmd(config, "lsjson", rclone_target), env=env)
     files = parse_lsjson(result.stdout)
     filtered_files = [
         item
@@ -365,15 +379,19 @@ def cleanup_old_versions(
     for file_info in stale_files:
         name = file_info["Name"]
         run_command(
-            ["rclone", "deletefile", f"{rclone_target.rstrip('/')}/{name}"],
+            build_rclone_cmd(
+                config,
+                "deletefile",
+                f"{rclone_target.rstrip('/')}/{name}",
+            ),
             env=env,
         )
         log(f"[INFO] Removed old file: {name}")
 
 
-def ensure_rclone_available(env: dict[str, str]) -> None:
+def ensure_rclone_available(config: AppConfig, env: dict[str, str]) -> None:
     try:
-        run_command(["rclone", "version"], env=env)
+        run_command(build_rclone_cmd(config, "version"), env=env)
     except (OSError, subprocess.CalledProcessError) as error:
         raise RuntimeError("rclone недоступен в окружении") from error
 
@@ -407,7 +425,7 @@ def main() -> int:
         return 0
 
     try:
-        ensure_rclone_available(command_env)
+        ensure_rclone_available(config, command_env)
         html = fetch_download_page(config)
         latest_asset = select_latest_asset(html, config)
     except requests.RequestException as error:
@@ -428,7 +446,9 @@ def main() -> int:
 
     downloaded_file = temp_dir / latest_asset.filename
     try:
-        if remote_file_exists(latest_asset.filename, rclone_target, command_env):
+        if remote_file_exists(
+            latest_asset.filename, rclone_target, config, command_env
+        ):
             log("[INFO] File already exists in Google Drive, upload skipped")
         else:
             downloaded_file = download_file(latest_asset, config, temp_dir)
@@ -437,6 +457,7 @@ def main() -> int:
             rclone_target,
             config.keep_last_versions,
             config.file_pattern,
+            config,
             command_env,
         )
     except requests.RequestException as error:

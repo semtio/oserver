@@ -36,16 +36,25 @@ jobs:
         shell: bash
         env:
           RCLONE_CONFIG_CONTENT: ${{ secrets.RCLONE_CONFIG }}
+          RCLONE_CONF_FALLBACK: ${{ secrets.RCLONE_CONF }}
         run: |
           mkdir -p ~/.config/rclone
           python - <<'PY'
           import os
           from pathlib import Path
 
+          config_text = os.environ.get('RCLONE_CONFIG_CONTENT', '').strip()
+          if not config_text:
+              config_text = os.environ.get('RCLONE_CONF_FALLBACK', '').strip()
+          if not config_text:
+              raise SystemExit('RCLONE_CONFIG/RCLONE_CONF secret is empty')
+
           config_dir = Path.home() / '.config' / 'rclone'
           config_dir.mkdir(parents=True, exist_ok=True)
           config_path = config_dir / 'rclone.conf'
-          config_path.write_text(os.environ['RCLONE_CONFIG_CONTENT'], encoding='utf-8')
+          config_path.write_text(config_text + '\n', encoding='utf-8')
+          if '[gdrive]' not in config_text:
+              raise SystemExit('rclone config does not contain [gdrive] section')
           print(f'Wrote rclone config to {config_path}')
           PY
 
