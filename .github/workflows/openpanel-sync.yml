@@ -1,0 +1,56 @@
+name: OpenPanel Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install rclone
+        run: curl https://rclone.org/install.sh | sudo bash
+
+      - name: Configure rclone
+        shell: bash
+        run: |
+          mkdir -p ~/.config/rclone
+          cat <<'EOF' > ~/.config/rclone/rclone.conf
+          ${{ secrets.RCLONE_CONF }}
+          EOF
+
+      - name: Run sync script
+        env:
+          RCLONE_SERVICE_ACCOUNT_JSON: ${{ secrets.RCLONE_SERVICE_ACCOUNT_JSON }}
+        run: python scripts/sync_openpanel.py --config config/openpanel.json
+
+      - name: Commit updated version
+        shell: bash
+        run: |
+          if git diff --quiet -- data/version.txt data/state.json; then
+            echo "No repository state changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/version.txt data/state.json
+          git commit -m "chore: update OpenPanel sync state"
+          git push

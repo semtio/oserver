@@ -1,0 +1,34 @@
+{
+  "check_interval_hours": 24,
+  "download_url": "https://ospanel.io/download/",
+  "network": {
+    "page_timeout_seconds": 60,
+    "download_timeout_seconds": 14400,
+    "download_max_retries": 3,
+    "retry_delay_seconds": 10
+  },
+  "parsing": {
+    "button_id": "second_button",
+    "file_pattern": "open_server_panel_*.exe"
+  },
+  "google_drive": {
+    "remote_name": "gdrive",
+    "remote_path": "OpenServer",
+    "keep_last_versions": 3,
+    "upload_max_retries": 3,
+    "upload_extra_flags": [
+      "--size-only"
+    ]
+  },
+  "rclone": {
+    "config_path": "~/.config/rclone/rclone.conf",
+    "config_path_env": "RCLONE_CONFIG",
+    "use_service_account_json": true,
+    "service_account_json_env": "RCLONE_SERVICE_ACCOUNT_JSON"
+  },
+  "local_paths": {
+    "temp_dir": "/tmp/openserver",
+    "version_file": "data/version.txt",
+    "state_file": "data/state.json"
+  }
+}
